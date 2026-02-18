@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Trash2, FileText } from "lucide-react";
+import { Plus, Trash2, FileText, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import InvoicePrint from "@/components/InvoicePrint";
 
 interface InvoiceItem {
   productName: string;
@@ -62,7 +63,38 @@ export default function Invoices() {
   const [branch, setBranch] = useState("");
   const [employee, setEmployee] = useState("");
   const [items, setItems] = useState<InvoiceItem[]>([{ productName: "", qty: 1, unitPrice: 0, lineDiscount: 0 }]);
+  const [printInvoice, setPrintInvoice] = useState<Invoice | null>(null);
+  const printRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  const handlePrint = (inv: Invoice) => {
+    setPrintInvoice(inv);
+    setTimeout(() => {
+      const content = printRef.current;
+      if (!content) return;
+      const win = window.open("", "_blank");
+      if (!win) return;
+      win.document.write(`
+        <html dir="rtl">
+          <head>
+            <title>فاتورة ${inv.id}</title>
+            <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+            <style>
+              * { box-sizing: border-box; margin: 0; padding: 0; }
+              body { font-family: 'Cairo', sans-serif; }
+              @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+            </style>
+          </head>
+          <body>${content.innerHTML}</body>
+        </html>
+      `);
+      win.document.close();
+      win.focus();
+      win.print();
+      win.close();
+      setPrintInvoice(null);
+    }, 100);
+  };
 
   const addItem = () => setItems([...items, { productName: "", qty: 1, unitPrice: 0, lineDiscount: 0 }]);
   const removeItem = (i: number) => setItems(items.filter((_, idx) => idx !== i));
@@ -148,6 +180,7 @@ export default function Invoices() {
                     <th className="text-right p-3 font-medium text-muted-foreground">المدفوع</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">المتبقي</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">الحالة</th>
+                    <th className="text-right p-3 font-medium text-muted-foreground">إجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -167,6 +200,11 @@ export default function Invoices() {
                             {inv.status}
                           </span>
                         </td>
+                        <td className="p-3">
+                          <Button variant="ghost" size="icon" onClick={() => handlePrint(inv)} title="طباعة">
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -175,6 +213,11 @@ export default function Invoices() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Hidden print area */}
+        <div className="hidden">
+          {printInvoice && <InvoicePrint ref={printRef} invoice={printInvoice} />}
+        </div>
       </div>
     </AppLayout>
   );
